@@ -9,11 +9,13 @@ print("UDP server up and listening")
 # Listen for incoming datagrams
 
 
-def handle(method,url,length=None,data=""):
+def handle(method, url, length=None, data=""):
     """
     handles http requests
     """
-    pass
-
-
-# UDPServerSocket.sendto(bytesToSend, address)
+    if method == "GET":
+        http.send(True, code=200, status="ok", payload="\n".join(open(url, "r").readlines()))
+    else:
+        file = open(url, "a")
+        file.write(data)
+        http.send(True, code=200, status="ok")
