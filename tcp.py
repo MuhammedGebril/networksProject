@@ -1,4 +1,5 @@
 import socket
+import array
 import http
 import threading
 
@@ -95,14 +96,26 @@ class Segment:
         self.SEQ = SEQ
         self.AKN = AKN
         self.DATA = DATA
+        self.flags = [str(SYN), str(ACK), str(FIN), str(SEQ), str(AKN)]
 
-    def computeChecksum(self):
+    def computeChecksum(self, arg = None):
         """
         computes checksum of segment
         :return: integer
         """
         chk = 0
-
+        segment = "_"
+        if arg is None:
+            segment = segment.join([self.flags, self.DATA])
+        else:
+            segment = segment.join(str(arg, 'ascii'))
+        packet = bytes(segment, 'ascii')
+        if len(packet) % 2 != 0:
+            packet += b'\0'
+        res = sum(array.array("H", packet))
+        res = (res >> 16) + (res & 0xffff)
+        res += res >> 16
+        chk = (~res) & 0xffff
         return chk
 
     def serialize(self):
@@ -110,15 +123,24 @@ class Segment:
         converts segment into Byte-array form
         :return: byte-array
         """
-        bytes = ""
         checksum = self.computeChecksum()
-        return bytes
+        flags = self.flags.append([str(checksum), self.DATA])
+
+        segment = "_"
+        segment = segment.join(flags)
+        byte = bytes(segment, 'utf-8')
+        return byte
 
 
-    def parse(self):
+    def parse(self, msg:str):
         """
         converts Byte-array into segment form
         :return: Segment object
         """
-
-        #return Segment(s,a,f,sq,ak,dt)
+        msg = msg.split('_' , 6)
+        checksum = msg.pop(5)
+        computedCheckSum = self.computeChecksum(msg)
+        if checksum == computedCheckSum:
+            return True, Segment(msg[0], msg[1], msg[2], msg[3], msg[4], msg[6])
+        else:
+            return False , None
