@@ -1,7 +1,7 @@
 import socket
 import array
 import sys
-import http
+import horu
 import threading
 
 """
@@ -64,8 +64,7 @@ class TCP:
                 self.client.sendto(segment.serialize(), self.server_add)
 
             # lines to initiate receiving end
-            rcv = threading.Thread(target=self.recieve, args=(self, s2c, self.sSeq if s2c else self.cSeq))
-            rcv.start()
+            threading.Thread(target=self.recieve, args=(s2c, self.sSeq if s2c else self.cSeq)).start()
 
             # wait for ack otherwise resend
             if s2c:
@@ -73,20 +72,26 @@ class TCP:
                 ack = None
                 while ack is None:
                     try:
-                        ack = self.server.recv(4096)
+                        ack = str(self.server.recv(4096), "ascii")
+                        ack = Segment.parse(ack)
                     except socket.timeout:
                         self.server.sendto(segment.serialize(), self.client_add)
-                    valid, ack = Segment.parse(str(ack, "ascii"))
+                        continue
+                    if ack is None:
+                        self.server.sendto(segment.serialize(), self.client_add)
 
             else:
                 self.client.settimeout(TCP.TIMEOUT)
                 ack = None
                 while ack is None:
                     try:
-                        ack = self.client.recv(4096)
+                        ack = str(self.client.recv(4096), "ascii")
+                        ack = Segment.parse(ack)
                     except socket.timeout:
                         self.client.sendto(segment.serialize(), self.server_add)
-                    valid, ack = Segment.parse(str(ack, "ascii"))
+                        continue
+                    if ack is None:
+                        self.client.sendto(segment.serialize(), self.server_add)
 
     def recieve(self, s2c: bool, seq: int):
         """
@@ -94,40 +99,48 @@ class TCP:
 
         :param s2c: specifies direction (server to client)
         :param seq: sequence number
-        :param akn: acknowledgment number
         :return: None
         """
         recieving = True
+        self.buffer = []
         # if the recipient is the client
         if s2c:
             while recieving:
                 valid = False
                 while not valid:
                     data = str(self.client.recv(4096), "ascii")
-                    valid, data = Segment.parse(data)
+                    data = Segment.parse(data)
 
-                    if valid:
+                    if data:
+                        valid = True
                         ack = Segment(0,1,0,seq,data.SEQ+1,"").serialize()
+                        seq = seq + 1
+                        self.cSeq = seq
                         self.client.sendto(ack, self.server_add)
-                self.buffer.append(data.Data)
-                if data.DATA[len(data.Data)-1] == "\x04":
+                if data.DATA[len(data.DATA)-1] == "\x04":
                     recieving = False
+                    data.DATA = data.DATA[:len(data.DATA) - 1]
+                self.buffer.append(data.DATA)
         else:
             while recieving:
                 valid = False
                 while not valid:
                     data = str(self.server.recv(4096), "ascii")
-                    valid, data = Segment.parse(data)
+                    data = Segment.parse(data)
 
-                    if valid:
+                    if data:
+                        valid = True
                         ack = Segment(0, 1, 0, seq, data.SEQ + 1, "").serialize()
-                        self.client.sendto(ack, self.server_add)
-                self.buffer.append(data.Data)
-                if data.DATA[len(data.Data) - 1] == "\x04":
+                        seq = seq + 1
+                        self.sSeq = seq
+                        self.server.sendto(ack, self.client_add)
+                if data.DATA[len(data.DATA) - 1] == "\x04":
                     recieving = False
+                    data.DATA = data.DATA[:len(data.DATA) - 1]
+                self.buffer.append(data.DATA)
 
         msg = "".join(self.buffer)
-        http.Http.parse(msg, s2c)
+        horu.Http.parse(msg, s2c)
 
 
 class Segment:
@@ -170,8 +183,8 @@ class Segment:
         while size > 0:
             seg = Segment(0, 0, 0, seq, ack, "")
             fsize = seg.get_flags_size()
-            if size < Segment.SEGMENTSIZE-2:
-                seg.DATA = "".join(data[:size], "\x04")
+            if size < Segment.SEGMENTSIZE-fsize-2:
+                seg.DATA = "".join([data[:size], "\x04"])
             else:
                 seg.DATA = data[:Segment.SEGMENTSIZE - fsize - 2]
                 data = data[Segment.SEGMENTSIZE-fsize-2:]
@@ -190,11 +203,11 @@ class Segment:
         :return: integer
         """
         chk = 0
-        segment = "_"
+        segment = ""
         if arg is None:
-            segment = segment.join([self.flags, self.DATA])
+            segment = "_".join([*self.flags, self.DATA])
         else:
-            segment = segment.join(str(arg, 'ascii'))
+            segment = "_".join(arg)
         packet = bytes(segment, 'ascii')
         if len(packet) % 2 != 0:
             packet += b'\0'
@@ -210,10 +223,11 @@ class Segment:
         :return: byte-array
         """
         checksum = Segment.computeChecksum(self)
-        flags = self.flags.append([str(checksum), self.DATA])
+        self.flags.append(str(checksum))
+        self.flags.append(self.DATA)
 
         segment = "_"
-        segment = segment.join(flags)
+        segment = segment.join(self.flags)
         byte = bytes(segment, 'utf-8')
         return byte
 
@@ -226,7 +240,7 @@ class Segment:
         msg = msg.split('_', 6)
         checksum = msg.pop(5)
         computedCheckSum = Segment.computeChecksum(arg=msg)
-        if checksum == computedCheckSum:
-            return Segment(msg[0], msg[1], msg[2], msg[3], msg[4], msg[6])
+        if int(checksum) == computedCheckSum:
+            return Segment(bool(msg[0]), bool(msg[1]), bool(msg[2]), int(msg[3]), int(msg[4]), msg[5])
         else:
             return None
