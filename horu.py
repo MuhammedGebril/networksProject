@@ -60,8 +60,9 @@ class Http:
         data = msg[2]
         headers = headers.split('\n')
         if is_response:
+            print(headers)
             code = headers[0].split(' ')[1]
-            status = headers[0].split(' ')[2]
+            status = " ".join(headers[0].split(' ')[2:])
             length = headers[1].split(' ')[1]
             Http.current_connection.recieve(code, status, length, data)
 
