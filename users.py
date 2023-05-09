@@ -1,5 +1,9 @@
 from horu import Http
 
+client_requests = [(False, "Post", "/contacts.txt", None, None, "John Smith --- 0123456789\n"), (False, "Get", "/contacts.txt")]
+client_counter = 0
+
+
 # server function
 def handle(method, url, length=None, data=""):
     """
@@ -36,15 +40,18 @@ def recieve(code, status, length=None, data=None):
     print(code, status)
     if data:
         print(data)
-
+    print()
+    global client_counter
+    if client_counter < len(client_requests):
+        client_counter = client_counter + 1
+        http.send(*(client_requests[client_counter-1]))
 
 
 localIP = "127.0.0.1"
 localPort = 20001
-
 # Create a http interface
 http = Http(handle, localIP, localPort)
-print("HTTP server up and listening")
+print("HTTP server up and listening\n")
 # Listen for incoming datagrams
 
 Http(recieve, "localhost", 20001)
