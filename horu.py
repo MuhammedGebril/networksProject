@@ -34,9 +34,10 @@ class Http:
         http = ""
         if is_response:
             http = "".join([http, "HTTP/1.1 {code:d} {status}\n".format(code = code,status = status)])
-            additional_response_headers = "Content-Length: {}\nContent-Type: text/html; charset=utf-8\n\n".format(len(payload))
-            http = "".join([http, additional_response_headers])
-            http = "".join([http, payload])
+            if payload:
+                additional_response_headers = "Content-Length: {}\nContent-Type: text/html; charset=utf-8\n\n".format(len(payload))
+                http = "".join([http, additional_response_headers])
+                http = "".join([http, payload])
         else:
             http = "".join([http, "{method} {url} HTTP/1.1\n".format(method = method.upper(), url = url)])
             if method.upper() == "POST":
@@ -60,16 +61,17 @@ class Http:
         data = msg[2]
         headers = headers.split('\n')
         if is_response:
-            print(headers)
             code = headers[0].split(' ')[1]
             status = " ".join(headers[0].split(' ')[2:])
-            length = headers[1].split(' ')[1]
+            length = 0
+            if data:
+                length = headers[1].split(' ')[1]
             Http.current_connection.recieve(code, status, length, data)
 
         else:
             method = headers[0].split(' ')[0]
             url = headers[0].split(' ')[1]
-            length = None
+            length = 0
             if method == "POST":
                 length = headers[1].split(' ')[1]
             Http.current_connection.handle(method, url, length, data)

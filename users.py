@@ -17,6 +17,7 @@ def handle(method, url, length=None, data=""):
         http.send(True, code=code, status=status, payload="".join(data))
     else:
         try:
+            open(url[1:]).close()
             file = open(url[1:], "a")
             file.write(data)
             code = 200
@@ -47,4 +48,4 @@ print("HTTP server up and listening")
 # Listen for incoming datagrams
 
 Http(recieve, "localhost", 20001)
-http.send(False, url="/book.txt")
+http.send(False, method="POST", url="/book.txt", payload="\nPOST TEST\n")
