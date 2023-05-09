@@ -1,6 +1,6 @@
 from horu import Http
 
-client_requests = [(False, "Post", "/contacts.txt", None, None, "John Smith --- 0123456789\n"), (False, "Get", "/contacts.txt")]
+client_requests = [(False, "Post", "/contacts.txt", None, None, "John Smith --- 0123456789\n"), (False, "Get", "/contacts.txt"), (False, "finish")]
 client_counter = 0
 
 

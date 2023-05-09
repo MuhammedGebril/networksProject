@@ -30,7 +30,9 @@ class Http:
         """
         responsible for sending http requests and responses
         """
-
+        if method.upper() == "FINISH":
+            Http.current_connection.tcp_connection.finalise()
+            return
         http = ""
         if is_response:
             http = "".join([http, "HTTP/1.1 {code:d} {status}\n".format(code = code,status = status)])

@@ -33,7 +33,7 @@ class TCP:
         """
         responsible for synchronisation sequence
 
-        :return: True if successful
+        :return: None
         """
 
         self.client.sendto(Segment(1,0,0,0,0,"").serialize(),self.server_add)
@@ -42,10 +42,25 @@ class TCP:
         self.client.recv(Segment.SEGMENTSIZE)
         self.client.sendto(Segment(0,1,0,1,1,"").serialize(),self.server_add)
         self.server.recv(Segment.SEGMENTSIZE)
-        self.cSeq = 1
-        self.sSeq = 0
+        self.cSeq = 2
+        self.sSeq = 1
         self.cAck = 1
         self.sAck = 1
+
+    def finalise(self):
+        """
+        simulates connection termination
+        :return: None
+        """
+        self.client.sendto(Segment(0,0,1,self.cSeq,self.cAck,"").serialize(),self.server_add)
+        self.server.recv(Segment.SEGMENTSIZE)
+        self.server.sendto(Segment(0,1,0,self.sSeq,self.cSeq+1,"").serialize(),self.client_add)
+        self.client.recv(Segment.SEGMENTSIZE)
+
+        self.server.sendto(Segment(0, 0, 1, self.sSeq+1, self.cSeq+1, "").serialize(), self.client_add)
+        self.client.recv(Segment.SEGMENTSIZE)
+        self.client.sendto(Segment(0, 1, 0, self.cSeq+1, self.sSeq+2, "").serialize(), self.server_add)
+        self.server.recv(Segment.SEGMENTSIZE)
 
     def send(self, s2c: bool, msg: str):
         """
@@ -72,7 +87,7 @@ class TCP:
                 ack = None
                 while ack is None:
                     try:
-                        ack = str(self.server.recv(4096), "ascii")
+                        ack = str(self.server.recv(Segment.SEGMENTSIZE), "ascii")
                         ack = Segment.parse(ack)
                     except socket.timeout:
                         self.server.sendto(segment.serialize(), self.client_add)
@@ -85,7 +100,7 @@ class TCP:
                 ack = None
                 while ack is None:
                     try:
-                        ack = str(self.client.recv(4096), "ascii")
+                        ack = str(self.client.recv(Segment.SEGMENTSIZE), "ascii")
                         ack = Segment.parse(ack)
                     except socket.timeout:
                         self.client.sendto(segment.serialize(), self.server_add)
@@ -108,7 +123,7 @@ class TCP:
             while recieving:
                 valid = False
                 while not valid:
-                    data = str(self.client.recv(4096), "ascii")
+                    data = str(self.client.recv(Segment.SEGMENTSIZE), "ascii")
                     data = Segment.parse(data)
 
                     if data:
@@ -125,7 +140,7 @@ class TCP:
             while recieving:
                 valid = False
                 while not valid:
-                    data = str(self.server.recv(4096), "ascii")
+                    data = str(self.server.recv(Segment.SEGMENTSIZE), "ascii")
                     data = Segment.parse(data)
 
                     if data:
