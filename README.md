@@ -1,5 +1,5 @@
 # networksProject
-in this project we simulate the reliable TCP connection using unreliable UDP connection with the addition of some manual reliability.
+in this project we simulate the reliable TCP connection using unreliable UDP sockets connection with the addition of some manual reliability.
 the project consists of 4 files:
 1. client file.
 2. server file.
